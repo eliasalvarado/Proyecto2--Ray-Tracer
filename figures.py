@@ -76,6 +76,9 @@ class Plane(Shape):
             return None
 
         point = addVectors(orig, multVectorScalar(dir, t))
+
+        u = (orig[0] + dir[0] * t + 1) / 2
+        v = (orig[1] + dir[1] * t + 1) / 2
         
         return Intercept(t, point, self.normal, None, self)
 
@@ -279,12 +282,8 @@ class Triangle(Shape):
 
 class Cylinder(Shape):
     def __init__(self, material, v0, v1, radius):
-        self.v0 = v0
-        self.v1 = v1
         self.radius = radius
-
         self.height = ((v1[0] - v0[0])**2 + (v1[1] - v0[1])**2 + (v1[2] - v0[2])**2) ** 0.5
-        self.v = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]]
 
         position = [(v0[0] + v1[0]) / 2,
                     (v0[1] + v1[1]) / 2,
@@ -294,29 +293,67 @@ class Cylinder(Shape):
 
     def ray_intersect(self, orig, dir):
         a = dir[0] ** 2 + dir[2] ** 2
+        oc = subtractVectors(orig, self.position)
+        b = 2 * (oc[0] * dir[0] + oc[2] * dir[2])
+        c = oc[0] ** 2 + oc[2] ** 2 - self.radius ** 2
+
+        denom = b ** 2 - 4 * a * c
+        if (denom < 0):
+            return None
+
+        x1 = (-b - denom ** 0.5) / (2 * a)
+        x2 = (-b + denom ** 0.5) / (2 * a)
+        
+        y1 = orig[1] + x1 * dir[1]
+        y2 = orig[1] + x2 * dir[1]
+
+        if not (0 <= y1 <= self.height or 0 <= y2 <= self.height):
+            return None
+
+        if y1 > y2:
+            x1, x2 = x2, x1
+        
+        t = x1 if y1 >= 0 else x2
+        point = addVectors(orig, multVectorScalar(dir, t)) 
+
+        if (0 <= point[1] <= self.height):
+            normal = [point[0], 0, point[2]]
+            normal = normVector(normal)
+
+            u = 0.5 + (atan2(normal[2], normal[0]) / (2 * pi))
+            v = point[1] / self.height
+
+            return Intercept(t, point, normal, (u, v), self)
+        
+        return None
+
+    """ def ray_intersect(self, orig, dir):
+        a = dir[0] ** 2 + dir[2] ** 2
         #a = dot(dir, dir) - dot(dir,self.v) ** 2
         b = 2 * (orig[0] *  dir[0] + orig[2] * dir[2])
         #b = 2 * dot(dir,)
-        c = orig[0] ** 2 + orig[2] ** 2 - self.radius
+        c = orig[0] ** 2 + orig[2] ** 2 - self.radius ** 2
 
-        discr = b ** 2 - 4 * a * c
-        if (discr < 0):
+        denom = b ** 2 - 4 * a * c
+        if (denom < 0):
             return None
 
-        x1 = (-b + discr ** 0.5) / (2 * a)
-        x2 = (-b - discr ** 0.5) / (2 * a)
+        x1 = (-b + denom ** 0.5) / (2 * a)
+        x2 = (-b - denom ** 0.5) / (2 * a)
         if (x1 > x2):
             t = x2
         
         if (t < 0):
-            if (x1 < 0):
-                return None
             t = x1
 
-        point = addVectors(orig, multVectorScalar(dir, t))
-        normal = [2 * point[0], 0, 2 * point[2]]
+        if (t < 0):
+            return None
 
-        if (point[1] < 0 or point[1] < self.height):
+        point = addVectors(orig, multVectorScalar(dir, t))
+        normal = [point[0], 0, point[2]]
+        normal = normVector(normal)
+
+        if (point[1] < 0 or point[1] > self.height):
             return None
 
         if (dir[1] != 0.0):
@@ -327,16 +364,18 @@ class Cylinder(Shape):
                 t2 = max(t3, t4)
 
             if (t2 >= 0):
-                point = addVectors(orig, multVectorScalar(dir, t2))
+                point1 = addVectors(orig, multVectorScalar(dir, t2))
 
-                if (point[0] ** 2 + point[2] ** 2 <= self.radius ** 2 + 0.9):
+                if (point1[0] ** 2 + point1[2] ** 2 <= self.radius ** 2 + 0.9):
                     t = min(t, t2)
                     if (t == t3):
-                        normal = [0,-1,0]
-                        return Intercept(t, point, normal, None, self)
+                        normal1 = [point1[1], -1, point1[2]]
+                        normal1 = normVector(normal1)
+                        return Intercept(t, point1, normal1, None, self)
                     elif (t == t4):
-                        normal = [0,1,0]
-                        return Intercept(t, point, normal, None, self)
+                        normal1 = [point1[1], 1, point1[2]]
+                        normal1 = normVector(normal1)
+                        return Intercept(t, point1, normal1, None, self)
         
-        return Intercept(t, point, normal, None, self)
+        return Intercept(t, point, normal, None, self) """
         

@@ -1,8 +1,22 @@
 from math import tan, pi, atan2, acos
 from materials import OPAQUE, REFLECTIVE, TRANSPARENT
-from npPirata import normVector, dot, vectorNegative, subtractVectors, reflectVector, addVectors, addVectorScalar, subtractVectorScalar, multVectorScalar, refractVector, totalInternalReflection, fresnel, vectorMagnitude
+from npPirata import normVector, dot, vectorNegative, subtractVectors, reflectVector, addVectors, addVectorScalar, subtractVectorScalar, multVectorScalar, refractVector, totalInternalReflection, fresnel, vectorMagnitude, multMV
+from obj import Obj
+from figures import Triangle
 
 maxRecursionDepth = 3
+
+class Model(object):
+    def __init__(self, filename, position = (0, 0, 0), material = None):
+        model = Obj(filename)
+
+        self.vertices = model.vertices
+        self.texCoords = model.texCoords
+        self.normals = model.normals
+        self.faces = model.faces
+        
+        self.position = position
+        self.material = material            
 
 class Raytracer(object):
     def __init__(self, screen):
@@ -46,8 +60,7 @@ class Raytracer(object):
     def rtCastRay(self, orig, dir, sceneObj = None, recursion = 0):
         if recursion >= maxRecursionDepth:
             return None
-        
-
+            
         intersect = None
         hit = None
         depth = float('inf')
@@ -187,6 +200,30 @@ class Raytracer(object):
         finalColor = [min(1,(surfaceColor[i] * lightColor[i])) for i in range(3)]
 
         return finalColor
+    
+    def loadModel(self, model):
+        modelMatrix = [[1, 0, 0, model.position[0]],
+                        [0, 1, 0, model.position[1]],
+                        [0, 0, 1, model.position[2]],
+                        [0, 0, 0, 1]]
+
+        
+        for face in model.faces:
+            vertCount = len(face)
+            v0 = model.vertices[face[0][0] - 1] + [1]
+            v1 = model.vertices[face[1][0] - 1] + [1]
+            v2 = model.vertices[face[2][0] - 1] + [1]
+
+            v0 = multMV(modelMatrix, v0)[:-1]
+            v1 = multMV(modelMatrix, v1)[:-1]
+            v2 = multMV(modelMatrix, v2)[:-1]
+
+            self.scene.append(Triangle(material=model.material, v0=v0, v1=v1, v2=v2))
+
+            if vertCount == 4:
+                v3 = model.vertices[face[3][0] - 1] + [1]
+                v3 = multMV(modelMatrix, v3)[:-1]
+                self.scene.append(Triangle(material=model.material, v0=v0, v1=v2, v2=v3))
 
     def rtRender(self):
         for x in range(self.vpX, self.vpX + self.vpWidth + 1):
